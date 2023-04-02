@@ -15,11 +15,13 @@ message SearchRequest {
 // b、消息中每个字段都有名称和类型（名称/值对）
 ```
 
-
+</br>
 
 ### 1、指定字段类型
 
 &emsp;&emsp; 1）字段类型可以是 `标量类型`，也可以是 `复合类型`，包括 `枚举` 和 其他复合类型
+
+</br>
 
 ### 2、分配字段编号
 
@@ -31,6 +33,7 @@ message SearchRequest {
 
 &emsp;&emsp;&emsp;&emsp; c）可以指定的 `最小字段编号为1`，`最大字段编号为2^29 - 1，即 536870911`。但是，也不能使用数字 `19000～19999（FieldDescriptor::kFirstReservedNumber到 FieldDescriptor::kLastReservedNumber）`，因为它们是为 `Protocol Buffers` 实现保留的。
 
+</br>
 
 ### 3、指定字段规则
 
@@ -48,11 +51,13 @@ message SearchRequest {
 
 &emsp;&emsp;&emsp;&emsp; 4）`map` ：这是成对的 `键/值` 字段类型。 
 
+</br>
 
 ### 4、添加注释
 
 &emsp;&emsp; 要向 `.proto` 文件添加注释，请使用 `C/C++` 样式 `//` 和 `/* ... */` 语法。
 
+</br>
 
 ### 5、保留字段
 
@@ -62,12 +67,16 @@ message SearchRequest {
 
 ```proto
 message Foo {
-  reserved 2, 15, 9 to 11;
+  reserved 2, 15, 9 to 11, 40 to max;
   reserved "foo", "bar";
 }
 
+// 可以使用关键字指定保留的数值范围到最大可能值 max
+
 // 请注意，你不能在用一 reserved 语句中混合使用字段名称和字段编号
 ```
+
+</br>
 
 ### 6、标量值类型
 
@@ -89,6 +98,7 @@ message Foo {
 | string | 字符串必须始终包含 UTF-8 编码或 7 位 ASCII 文本，并且不能长于 2^32。| string |
 | bytes | 可能包含不超过 2^32 的任意字节序列。| []byte |
 
+</br>
 
 ### 7、默认值
 
@@ -112,6 +122,7 @@ message Foo {
 
 &emsp;&emsp; 4）如果将标量消息字段设置为其默认值，则该值将不会在线上序列化。
 
+</br>
 
 ### 8、枚举
 
@@ -170,3 +181,35 @@ enum EnumNotAllowingAlias {
 &emsp;&emsp; 6）在支持值超出指定符号范围的开放枚举类型的语言中，未知枚举值仅存储为其基础整数表示形式。
 
 &emsp;&emsp; 7）在任何一种情况下，如果消息被序列化，无法识别的值仍将与消息一起序列化。
+
+</br>
+
+### 9、使用其他消息类型
+
+```proto
+message SearchResponse {
+  repeated Result results = 1;
+}
+
+message Result {
+  string url = 1;
+  string title = 2;
+  repeated string snippets = 3;
+}
+```
+
+</br>
+
+### 10、导入定义
+
+&emsp;&emsp; 1）通过导入，你可以引用其他 `.proto` 文件中的定义。只需在文件顶部添加一个导入语句：
+
+```proto
+import "myproject/other_protos.proto";
+```
+
+
+
+
+
+
