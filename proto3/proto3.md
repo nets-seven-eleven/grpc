@@ -357,9 +357,69 @@ message SampleMessage {
 
 </br>
 
-### 16、map
+### 16、Maps
 
+```proto3
+// 创建一个关联映射作为数据定义的一部分，protocol buffers 提供了一个方便的快捷语法：
+map<key_type, value_type> map_field = N;
 
+// 其中，key_type 可以是任何整数或字符串类型（因此，除了浮点类型和字节之外的任何标量类型）。
+// 请注意，enum 不是有效的 key_type。value_type 可以是除其他映射之外的任何类型。
+```
+
+&emsp;&emsp; 1）`map` 字段不能是 `repeated`。
+
+&emsp;&emsp; 2）`map` 值的有线格式排序和 `map` 迭代排序是未定义的，因此您不能依赖 `map` 项的特定顺序。
+
+&emsp;&emsp; 3）为 a 生成文本格式时.proto，`map` 将按 `key` 排序。数字键按数字排序。
+
+&emsp;&emsp; 4）从线路解析或合并时，如果存在重复的 `map keys` ，则使用最后看到的 `key`。从文本格式解析 `map` 时，如果有重复的 `key`，解析可能会失败。
+
+&emsp;&emsp; 5）如果您为 `map` 字段提供键但不提供值，则序列化该字段时的行为取决于语言。在 `C++`、`Java`、`Kotlin` 和 `Python` 中，类型的默认值是序列化的，而在其他语言中，什么都没有序列化。
+
+&emsp;&emsp; 6）向后兼容性：
+
+&emsp;&emsp;&emsp;&emsp; a）`map` 语法等同于以下在线，因此不支持 `map` 的协议缓冲区实现仍然可以处理您的数据：
+
+```proto3
+message MapFieldEntry {
+  key_type key = 1;
+  value_type value = 2;
+}
+
+repeated MapFieldEntry map_field = N;
+```
+
+&emsp;&emsp;&emsp;&emsp; b）任何支持 `map` 的协议缓冲区实现都必须生成和接受上述定义可以接受的数据。
+
+</br>
+
+### 17、Packages
+
+&emsp;&emsp; 1）您可以向 `.proto` 文件添加可选说明符 `package`，以防止协议消息类型之间的名称冲突。
+
+```proto3
+package foo.bar;
+message Open { ... }
+```
+
+&emsp;&emsp; 2）然后，您可以在定义消息类型的字段时使用 `package` 说明符：
+
+```proto3
+message Foo {
+  ...
+  foo.bar.Open open = 1;
+  ...
+}
+```
+
+&emsp;&emsp; 3）在 `Go` 中，除非在 `.proto` 文件中明确提供选项 `go_package` ，否则该包将用作 `Go` 包名称。
+
+&emsp;&emsp; 4）包和名称解析：
+
+&emsp;&emsp;&emsp;&emsp; a）`protocol buffer` 语言中的类型名称解析像 `C++` 一样工作：首先搜索最内层的作用域，然后搜索下一个最内层的范围，依此类推，每个包都被认为是其父包的“内部”。领先的“。” （例如，`.foo.bar.Baz`）表示从最外层的作用域开始。
+
+&emsp;&emsp;&emsp;&emsp; b）协议缓冲区编译器通过解析导入的 `.proto` 文件来解析所有类型名称。每种语言的代码生成器都知道如何引用该语言中的每种类型，即使它具有不同的范围规则。
 
 
 
