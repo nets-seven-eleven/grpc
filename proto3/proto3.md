@@ -208,6 +208,157 @@ message Result {
 import "myproject/other_protos.proto";
 ```
 
+&emsp;&emsp; 2）可以导入 `proto2` 消息类型并在 `proto3` 消息中使用它们，反之亦然。但是，不能在 `proto3` 语法中直接使用 `proto2 枚举` （如果导入的 `proto2` 消息使用它们也没关系）
+
+</br>
+
+### 11、嵌套类型
+
+&emsp;&emsp; 可以在其他消息类型中定义和使用消息类型：
+
+```proto
+message SearchResponse {
+  message Result {
+    string url = 1;
+    string title = 2;
+    repeated string snippets = 3;
+  }
+  repeated Result results = 1;
+}
+```
+
+&emsp;&emsp; 如果要在其父类型之外重用此类消息，请将其称为 `_Parent_._Type_` ：
+
+```proto 
+message SomeOtherMessage {
+  SearchResponse.Result result = 1;
+}
+
+```
+
+&emsp;&emsp; 你可以根据需要嵌套消息：
+
+```proto
+message Outer {                  // Level 0
+  message MiddleAA {  // Level 1
+    message Inner {   // Level 2
+      int64 ival = 1;
+      bool  booly = 2;
+    }
+  }
+  message MiddleBB {  // Level 1
+    message Inner {   // Level 2
+      int32 ival = 1;
+      bool  booly = 2;
+    }
+  }
+}
+```
+
+</br>
+
+### 12、更新消息类型
+
+&emsp;&emsp; 请记住以下规则：
+
+&emsp;&emsp;&emsp;&emsp; a）不要更改任何现有字段的字段编号。
+
+&emsp;&emsp;&emsp;&emsp; b）如果添加新字段，则任何使用“旧”消息格式由代码序列化的消息仍然可以由新生成的代码解析。您应该记住这些元素的默认值，以便新代码能够正确地与旧代码生成的消息交互。类似地，由新代码创建的消息可以由旧代码解析：旧的二进制文件在解析时只需忽略新字段。
+
+&emsp;&emsp;&emsp;&emsp; c）只要在更新的消息类型中不再使用字段号，就可以删除字段。您可能需要重命名字段，也许可以添加前缀“OBSOLETE_”，或者保留字段编号，这样.proto的未来用户就不会意外地重复使用该编号。
+
+&emsp;&emsp;&emsp;&emsp; d）int32、uint32、int64、uint64和bool都是兼容的，这意味着您可以将字段从其中一种类型更改为另一种类型，而不会破坏向前或向后的兼容性。如果从连线中解析出一个不适合对应类型的数字，则会得到与在C++中将该数字强制转换为该类型相同的效果（例如，如果将64位数字读取为int32，则会将其截断为32位）。
+
+&emsp;&emsp;&emsp;&emsp; e）sint32和sint64彼此兼容，但与其他整数类型不兼容。
+
+&emsp;&emsp;&emsp;&emsp; f）字符串和字节是兼容的，只要字节是有效的UTF-8。
+
+&emsp;&emsp;&emsp;&emsp; g）如果字节包含消息的编码版本，则嵌入消息与字节兼容。
+
+&emsp;&emsp;&emsp;&emsp; h）fixed32与sfixed32兼容，fixed64与sfixer64兼容。
+
+&emsp;&emsp;&emsp;&emsp; i）对于字符串、字节和消息字段，可选与重复兼容。给定重复字段的序列化数据作为输入，如果该字段是基元类型字段，则期望该字段为可选字段的客户端将获取最后一个输入值，或者如果它是消息类型字段，将合并所有输入元素。请注意，这对于包括布尔和枚举在内的数字类型通常是不安全的。数字类型的重复字段可以以压缩格式序列化，当需要可选字段时，压缩格式将无法正确解析。
+
+&emsp;&emsp;&emsp;&emsp; j）enum在有线格式方面与int32、uint32、int64和uint64兼容（请注意，如果值不合适，则会被截断）。然而，请注意，当消息被反序列化时，客户端代码可能会对它们进行不同的处理：例如，无法识别的proto3枚举类型将保留在消息中，但当消息被反串行化时，如何表示这一点取决于语言。Int字段总是保持其值。
+
+&emsp;&emsp;&emsp;&emsp; k）将单个可选字段或扩展更改为新字段或扩展的成员是二进制兼容的，但对于某些语言（尤其是Go），生成的代码的API将以不兼容的方式更改。出于这个原因，谷歌没有在其公共API中做出这样的更改，正如AIP-180中所记录的那样。关于源代码兼容性，同样需要注意的是，如果您确信没有代码一次设置多个字段，那么将多个字段移动到一个新的字段中可能是安全的。将字段移动到的现有字段中是不安全的。同样，将其中一个字段更改为可选字段或扩展也是安全的。
+
+</br>
+
+### 13、未知字段
+
+&emsp;&emsp; 1）未知字段是格式良好的协议缓冲区序列化数据，表示解析器无法识别的字段。例如，当一个旧二进制文件用新字段解析新二进制文件发送的数据时，这些新字段将成为旧二进制文件中的未知字段。
+
+&emsp;&emsp; 2）最初，`proto3` 消息在解析过程中总是丢弃未知字段，但在 `3.5` 版本中，我们重新引入了未知字段的保留，以匹配 `proto2` 的行为。在 `3.5` 及更高版本中，解析过程中会保留未知字段，并将其包含在序列化输出中。
+
+</br>
+
+### 14、Any
+
+&emsp;&emsp; 1）`Any` 消息类型允许您将消息用作嵌入类型，而不需要它们的 `.proto` 定义。`Any` 包含以字节形式的任意序列化消息，以及作为该消息的全局唯一标识符并解析为该消息类型的 `URL`。要使用 `Any` 类型，您需要导入`google/protobuf/Any.proto`。
+
+```proto3
+import "google/protobuf/any.proto";
+
+message ErrorStatus {
+  string message = 1;
+  repeated google.protobuf.Any details = 2;
+}
+```
+
+&emsp;&emsp; 2）给定消息类型的默认类型 `URL` 是：`type.googleapis.com/_packagename_._messagename_`
+
+&emsp;&emsp; 3）不同的语言实现将支持运行时库助手以类型安全的方式打包和解包Any值——例如，在 `Java` 中，类型`Any`将有特殊的 `pack()` 和 `unpack()` 访问器，而在 `C++` 中有 `PackFrom()` 和 `UnpackTo()` 方法。
+
+</br>
+
+### 15、Oneof
+
+&emsp;&emsp; 1）如果您有一条包含多个字段的消息，并且最多同时设置一个字段，则可以使用 `oneof` 功能强制执行此行为并节省内存。
+
+&emsp;&emsp; 2）`oneof` 字段与常规字段类似，不同之处在于oneof 中的所有字段共享内存，并且最多可以同时设置一个字段。设置 `oneof` 的任何成员会自动清除所有其他成员。根据您选择的语言，您可以使用特殊 `case()`或方法检查 `oneof` 中的哪个值被设置（如果有） 。`WhichOneof()`
+
+&emsp;&emsp; 3）注意，如果设置了多个值，`proto` 中顺序确定的最后一个设置值将覆盖之前的所有值。
+
+&emsp;&emsp; 4）使用 `Oneof`，你可以添加除 `map` 和 `repeated` 字段外的任何类型的字段到 `oneof` 的定义中：
+
+```proto3
+message SampleMessage {
+  oneof test_oneof {
+    string name = 4;
+    SubMessage sub_message = 9;
+  }
+}
+```
+
+&emsp;&emsp; 5）Oneof 的特点：
+
+&emsp;&emsp;&emsp;&emsp; a）设置一个 `oneof` 字段将自动清除 `oneof` 的所有其他成员。因此，如果您设置了多个 `oneof` 字段，则只有您设置的最后一个字段仍然有值。
+
+&emsp;&emsp;&emsp;&emsp; b）如果解析器在网络中遇到同一个 `oneof` 的多个成员，则在解析的消息中只使用最后看到的成员。
+
+&emsp;&emsp;&emsp;&emsp; c）`Oneof` 不能是 `repeated`。
+
+&emsp;&emsp;&emsp;&emsp; d）反射 `API` 适用于其中一个字段。
+
+&emsp;&emsp;&emsp;&emsp; e）如果将 `oneof` 字段设置为默认值（例如将 `int32 oneof` 字段设置为 `0`），将设置该 `oneof` 字段的“大小写”，并且该值将在线上序列化。
+
+&emsp;&emsp;&emsp;&emsp; f）
+
+&emsp;&emsp; 6）向后兼容问题：添加或删除其中一个字段时要小心。如果检查 `oneof` 的值返回 `None/ NOT_SET`，则可能意味着 `oneof` 尚未设置或已设置为不同版本的 `oneof` 中的字段。无法区分差异，因为无法知道线路上的未知字段是否是 `oneof` 的成员。
+
+&emsp;&emsp; 7）标记重用问题：
+
+&emsp;&emsp;&emsp;&emsp; a）将字段移入或移出 `oneof`：在消息被序列化和解析后，您可能会丢失一些信息（一些字段将被清除）。但是，您可以安全地将单个字段移动到新的 `oneof` 中，并且如果知道只有一个字段被设置过，则可以移动多个字段。
+
+&emsp;&emsp;&emsp;&emsp; b）删除 `oneof` 字段并将其添加回：这可能会在消息被序列化和解析后清除您当前设置的 `oneof` 字段。
+
+&emsp;&emsp;&emsp;&emsp; c）拆分或合并 `Oneof`：这与移动常规字段有类似的问题。
+
+</br>
+
+### 16、map
+
 
 
 
